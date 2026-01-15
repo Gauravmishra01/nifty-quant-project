@@ -24,7 +24,7 @@ export default function Home() {
     try {
       // 1. Tell Python to update data
       const res = await fetch(
-        "https://nifty-quant-projectt.onrender.com/api/refresh",
+        "https://nifty-quant-project.onrender.com/api/refresh",
         {
           method: "POST",
         }
@@ -34,7 +34,7 @@ export default function Home() {
 
       // 2. If successful, reload the page data
       const newData = await fetch(
-        "https://nifty-quant-projectt.onrender.com/api/data"
+        "https://nifty-quant-project.onrender.com/api/data"
       ).then((r) => r.json());
       setData(newData);
       alert("✅ Market Data Updated Successfully!");
@@ -47,7 +47,7 @@ export default function Home() {
   };
   // Fetch Data from Python Backend
   useEffect(() => {
-    fetch("https://nifty-quant-projectt.onrender.com/api/data")
+    fetch("https://nifty-quant-project.onrender.com/api/data")
       .then((res) => res.json())
       .then((data) => {
         setData(data);

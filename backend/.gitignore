@@ -1,0 +1,13 @@
+# Ignore the virtual environment (Too heavy)
+venv/
+.venv/
+
+# Ignore Python compiled files (Useless junk)
+__pycache__/
+*.pyc
+
+# Ignore data folders (So we don't upload large CSVs)
+data/
+results/
+
+node_modules/

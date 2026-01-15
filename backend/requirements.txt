@@ -1,0 +1,17 @@
+pandas
+numpy
+matplotlib
+seaborn
+scikit-learn
+xgboost
+tensorflow
+hmmlearn
+py_vollib
+mibian
+yfinance
+openpyxl
+
+flask
+flask-cors
+
+gunicorn

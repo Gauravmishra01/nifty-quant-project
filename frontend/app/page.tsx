@@ -30,8 +30,8 @@ export default function Home() {
   const REFRESH_URL = "https://nifty-quant-project.onrender.com/api/refresh";
 
   // 🛠️ LOCALHOST (Uncomment these only if testing locally)
-  // const API_URL = "https://nifty-quant-project.onrender.com/api/data";
-  // const REFRESH_URL = "https://nifty-quant-project.onrender.com/api/refresh";
+  // const API_URL = "http://127.0.0.1:5000/api/data";
+  // const REFRESH_URL = "http://127.0.0.1:5000/refresh";
 
   const fetchData = async () => {
     setLoading(true);

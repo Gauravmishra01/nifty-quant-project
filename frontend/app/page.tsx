@@ -24,10 +24,14 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [regime, setRegime] = useState("Unknown");
 
-  // YOUR BACKEND URL
-  // We use the production URL you confirmed earlier
-  const API_URL = "https://nifty-quant-project.onrender.com/api/data";
-  const REFRESH_URL = "https://nifty-quant-project.onrender.com/api/refresh";
+  // --- CONFIGURATION ---
+  // ✅ LIVE SERVER (Use this for your Final Submission)
+  const API_URL = "http://127.0.0.1:5000/api/data";
+  const REFRESH_URL = "http://127.0.0.1:5000/api/refresh";
+
+  // 🛠️ LOCALHOST (Uncomment these only if testing locally)
+  // const API_URL = "http://127.0.0.1:5000/api/data";
+  // const REFRESH_URL = "http://127.0.0.1:5000/api/refresh";
 
   const fetchData = async () => {
     setLoading(true);
@@ -42,12 +46,15 @@ export default function Home() {
 
         // Detect Regime from the last data point
         const lastPoint = jsonData[jsonData.length - 1];
-        if (lastPoint.regime !== undefined) {
-          // Map numeric regime to text if needed, or just use the value
+        // Check for 'regime' (lowercase) or 'Regime' (uppercase)
+        const regimeVal =
+          lastPoint.regime !== undefined ? lastPoint.regime : lastPoint.Regime;
+
+        if (regimeVal !== undefined) {
           setRegime(
-            lastPoint.regime === 0
+            regimeVal === 0
               ? "Bull/Bear Trend"
-              : lastPoint.regime === 1
+              : regimeVal === 1
                 ? "High Volatility"
                 : "Choppy/Sideways",
           );
@@ -68,8 +75,7 @@ export default function Home() {
     setLoading(true);
     try {
       await fetch(REFRESH_URL, { method: "POST" });
-      // After triggering refresh, fetch the new data
-      setTimeout(fetchData, 4000); // Wait 4s for backend to finish processing
+      setTimeout(fetchData, 4000);
     } catch (error) {
       console.error("Refresh failed:", error);
       setLoading(false);
@@ -80,16 +86,29 @@ export default function Home() {
     fetchData();
   }, []);
 
-  // Calculate KPIs safely
+  // --- ROBUST KPI CALCULATION ---
+  const lastPoint = data.length > 0 ? data[data.length - 1] : null;
+
+  const rawPrice = lastPoint ? (lastPoint.close ?? lastPoint.Close) : null;
   const lastPrice =
-    data.length > 0 ? data[data.length - 1].close.toFixed(2) : "---";
-  const rsi = data.length > 0 ? data[data.length - 1].rsi.toFixed(1) : "---";
-  const signal =
-    data.length > 0
-      ? data[data.length - 1].signal === 1
-        ? "BUY"
-        : "WAIT"
-      : "WAIT";
+    rawPrice !== undefined && rawPrice !== null
+      ? Number(rawPrice).toFixed(2)
+      : "---";
+
+  const rawRsi = lastPoint ? (lastPoint.rsi ?? lastPoint.RSI) : null;
+  const rsi =
+    rawRsi !== undefined && rawRsi !== null ? Number(rawRsi).toFixed(1) : "---";
+
+  const rawSignal = lastPoint ? (lastPoint.signal ?? lastPoint.Signal) : null;
+  const signal = rawSignal === 1 ? "BUY" : "WAIT";
+
+  // --- CHART FIX: REMOVE ZEROS ---
+  const chartData = data.filter((item) => {
+    const price = item.close ?? item.Close ?? 0;
+    const ema21 = item.ema_21 ?? item.EMA_21 ?? 0;
+    // Only show valid data > 1 to fix zoom
+    return price > 1 && ema21 > 1;
+  });
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-6 font-sans">
@@ -169,11 +188,15 @@ export default function Home() {
           Price Trend & EMA Crossover Strategy
         </h2>
 
-        {/* --- SAFETY GUARD: PREVENTS CRASH --- */}
-        <div className="h-[400px] w-full flex items-center justify-center">
+        {/* --- FIXED CHART CONTAINER --- */}
+        {/* We use explicit style={{ width: '100%', height: 400 }} to satisfy Recharts requirements */}
+        <div
+          style={{ width: "100%", height: 400 }}
+          className="flex items-center justify-center"
+        >
           {data && Array.isArray(data) && data.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data}>
+              <LineChart data={chartData}>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   stroke="#334155"
@@ -200,7 +223,7 @@ export default function Home() {
                 />
                 <YAxis
                   stroke="#94a3b8"
-                  domain={["auto", "auto"]}
+                  domain={["dataMin", "dataMax"]}
                   fontSize={12}
                   tickFormatter={(val) => `₹${val}`}
                 />
@@ -220,7 +243,7 @@ export default function Home() {
                 <Legend verticalAlign="top" height={36} />
                 <Line
                   type="monotone"
-                  dataKey="close"
+                  dataKey={data[0]?.close !== undefined ? "close" : "Close"}
                   stroke="#3b82f6"
                   strokeWidth={2}
                   dot={false}
@@ -229,7 +252,7 @@ export default function Home() {
                 />
                 <Line
                   type="monotone"
-                  dataKey="ema_9"
+                  dataKey={data[0]?.ema_9 !== undefined ? "ema_9" : "EMA_9"}
                   stroke="#10b981"
                   strokeWidth={1.5}
                   dot={false}
@@ -237,7 +260,7 @@ export default function Home() {
                 />
                 <Line
                   type="monotone"
-                  dataKey="ema_21"
+                  dataKey={data[0]?.ema_21 !== undefined ? "ema_21" : "EMA_21"}
                   stroke="#ef4444"
                   strokeWidth={1.5}
                   dot={false}

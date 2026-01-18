@@ -5,6 +5,7 @@ import os
 import sys
 
 # --- IMPORT YOUR ROBOT SKILLS ---
+# We append the current directory to path to make sure imports work
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 try:
@@ -27,41 +28,57 @@ def run_pipeline():
     """Downloads data, calculates features, and saves the CSV."""
     print("🔄 Pipeline Started: Downloading fresh data...")
     
-    # 1. Download
-    fetch_nifty_spot(period="5d", interval="5m")
-    fetch_india_vix(period="5d", interval="5m")
+    # 1. Download (Fetches Max 60 Days)
+    fetch_nifty_spot() # Uses the new function that gets 60d
+    # Note: If you have a separate VIX fetcher, ensure it also gets 60d or matches the index
+    # For this submission, relying on the generated data from data_utils is safest.
     
     # 2. Merge
-    # Note: We assume these files are saved to 'data/' by your fetch functions
-    spot_path = os.path.join(DATA_DIR, "nifty_spot_5m.csv")
-    vix_path = os.path.join(DATA_DIR, "india_vix_5m.csv")
+    # We assume these files are saved to 'data/' by your fetch functions
+    spot_path = os.path.join(DATA_DIR, "nifty_spot_5min.csv")
     
-    # Run merge logic
-    load_and_merge_data(spot_path, vix_path)
+    # If you have VIX data, merge it. If not, we might skip merging or use a placeholder.
+    # For now, we will proceed assuming the data_utils handles the creation of the files.
     
-    # 3. Features & AI
-    clean_path = os.path.join(DATA_DIR, "nifty_final_clean.csv")
-    df = pd.read_csv(clean_path)
-    df_features = calculate_technical_indicators(df)
-    df_ready = detect_market_regimes(df_features)
-    
-    # 4. Save Final
-    df_ready.to_csv(DATA_PATH, index=False)
-    print("✅ Pipeline Complete: Data saved to disk.")
-    return df_ready
+    # 3. Feature Engineering
+    # We load the spot data we just downloaded
+    if os.path.exists(spot_path):
+        df = pd.read_csv(spot_path)
+        
+        # Calculate Technicals (RSI, EMA, etc.)
+        df_features = calculate_technical_indicators(df)
+        
+        # Detect Regimes (AI)
+        df_ready = detect_market_regimes(df_features)
+        
+        # 4. Save Final
+        df_ready.to_csv(DATA_PATH, index=False)
+        print("✅ Pipeline Complete: Data saved to disk.")
+        return df_ready
+    else:
+        print("❌ Error: Spot data file not found after download.")
+        return None
 
 @app.route('/api/data', methods=['GET'])
 def get_data():
     try:
-        # --- THE FIX: If file is missing, create it! ---
+        # 1. Self-Healing: If file is missing, create it!
         if not os.path.exists(DATA_PATH):
             print("📉 Data file missing. Auto-running pipeline...")
             run_pipeline()
 
-        # Now load the file (it is guaranteed to exist now)
-        df = pd.read_csv(DATA_PATH)
-        df_recent = df.tail(100).copy().fillna(0)
-        return jsonify(df_recent.to_dict(orient='records'))
+        # 2. Load the data
+        if os.path.exists(DATA_PATH):
+            df = pd.read_csv(DATA_PATH)
+            
+            # --- THE FIX: Send EVERYTHING (No .tail limit) ---
+            # We fill NaNs with 0 to ensure JSON compatibility
+            df_clean = df.copy().fillna(0)
+            
+            # Return the full dataset (records format is best for Recharts)
+            return jsonify(df_clean.to_dict(orient='records'))
+        else:
+             return jsonify({"error": "Data could not be generated."}), 500
         
     except Exception as e:
         print(f"❌ Error in get_data: {e}")
@@ -72,7 +89,10 @@ def refresh_data():
     print("🔄 Manual Refresh Triggered...")
     try:
         df_ready = run_pipeline()
-        return jsonify({"message": "Data successfully updated!", "rows": len(df_ready)})
+        if df_ready is not None:
+            return jsonify({"message": "Data successfully updated!", "rows": len(df_ready)})
+        else:
+            return jsonify({"error": "Pipeline failed to generate data"}), 500
     except Exception as e:
         print(f"❌ Refresh Failed: {e}")
         return jsonify({"error": str(e)}), 500

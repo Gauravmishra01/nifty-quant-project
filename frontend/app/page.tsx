@@ -8,252 +8,263 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
 } from "recharts";
-import { Activity, TrendingUp, AlertTriangle } from "lucide-react";
+import {
+  Activity,
+  TrendingUp,
+  AlertTriangle,
+  RefreshCw,
+  Server,
+} from "lucide-react";
 
 export default function Home() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [regime, setRegime] = useState("Unknown");
 
-  const [refreshing, setRefreshing] = useState(false);
+  // YOUR BACKEND URL
+  // We use the production URL you confirmed earlier
+  const API_URL = "https://nifty-quant-project.onrender.com/api/data";
+  const REFRESH_URL = "https://nifty-quant-project.onrender.com/api/refresh";
 
-  // Function to Trigger Python Script
-  const handleRefresh = async () => {
-    setRefreshing(true);
+  const fetchData = async () => {
+    setLoading(true);
     try {
-      // 1. Tell Python to update data
-      const res = await fetch(
-        "https://nifty-quant-project.onrender.com/api/refresh",
-        {
-          method: "POST",
+      console.log("Fetching data from:", API_URL);
+      const res = await fetch(API_URL);
+      const jsonData = await res.json();
+
+      // SAFETY CHECK: Ensure we actually got a List (Array) of data
+      if (Array.isArray(jsonData) && jsonData.length > 0) {
+        setData(jsonData);
+
+        // Detect Regime from the last data point
+        const lastPoint = jsonData[jsonData.length - 1];
+        if (lastPoint.regime !== undefined) {
+          // Map numeric regime to text if needed, or just use the value
+          setRegime(
+            lastPoint.regime === 0
+              ? "Bull/Bear Trend"
+              : lastPoint.regime === 1
+                ? "High Volatility"
+                : "Choppy/Sideways",
+          );
         }
-      );
-
-      if (!res.ok) throw new Error("Refresh failed");
-
-      // 2. If successful, reload the page data
-      const newData = await fetch(
-        "https://nifty-quant-project.onrender.com/api/data"
-      ).then((r) => r.json());
-      setData(newData);
-      alert("✅ Market Data Updated Successfully!");
+      } else {
+        console.warn("Received non-array data:", jsonData);
+        setData([]); // Set to empty array to prevent crash
+      }
     } catch (error) {
-      console.error(error);
-      alert("❌ Failed to update data. Check console.");
+      console.error("Error fetching data:", error);
+      setData([]); // Set to empty array on error
     } finally {
-      setRefreshing(false);
+      setLoading(false);
     }
   };
-  // Fetch Data from Python Backend
+
+  const handleRefresh = async () => {
+    setLoading(true);
+    try {
+      await fetch(REFRESH_URL, { method: "POST" });
+      // After triggering refresh, fetch the new data
+      setTimeout(fetchData, 4000); // Wait 4s for backend to finish processing
+    } catch (error) {
+      console.error("Refresh failed:", error);
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    fetch("https://nifty-quant-project.onrender.com/api/data")
-      .then((res) => res.json())
-      .then((data) => {
-        setData(data);
-        setLoading(false);
-      })
-      .catch((err) => console.error("Failed to fetch data:", err));
+    fetchData();
   }, []);
 
-  if (loading)
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold animate-pulse">
-            Connecting to Quant Engine...
-          </h2>
-          <p className="text-slate-400 mt-2">Ensure server.py is running</p>
-        </div>
-      </div>
-    );
-
-  // Get latest values for the cards
-  const latest = data[data.length - 1] || {};
+  // Calculate KPIs safely
+  const lastPrice =
+    data.length > 0 ? data[data.length - 1].close.toFixed(2) : "---";
+  const rsi = data.length > 0 ? data[data.length - 1].rsi.toFixed(1) : "---";
+  const signal =
+    data.length > 0
+      ? data[data.length - 1].signal === 1
+        ? "BUY"
+        : "WAIT"
+      : "WAIT";
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 p-8 font-sans">
-      {/* Header */}
-      <header className="mb-8 flex justify-between items-center border-b border-slate-800 pb-6">
+    <div className="min-h-screen bg-slate-950 text-slate-100 p-6 font-sans">
+      {/* HEADER */}
+      <header className="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
         <div>
-          <h1 className="text-4xl font-extrabold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
-            NIFTY 50 Quant Dashboard
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
+            Nifty 50 Quant Dashboard
           </h1>
-          <p className="text-slate-400 mt-1">Live AI-Driven Market Analysis</p>
+          <p className="text-slate-400 text-sm mt-1">
+            AI-Driven Regime Detection & Strategy
+          </p>
         </div>
-
-        <div className="flex items-center gap-4">
-          {/* NEW REFRESH BUTTON */}
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className={`px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2
-              ${
-                refreshing
-                  ? "bg-slate-800 text-slate-500 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20"
-              }`}
-          >
-            {refreshing ? (
-              <>
-                <span className="animate-spin h-4 w-4 border-2 border-slate-500 border-t-transparent rounded-full"></span>
-                UPDATING...
-              </>
-            ) : (
-              "⚡ REFRESH DATA"
-            )}
-          </button>
-
-          <div className="flex items-center gap-2 bg-slate-900 px-4 py-2 rounded-full border border-slate-700">
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-            </span>
-            <span className="text-green-400 text-sm font-mono font-bold">
-              ONLINE
-            </span>
-          </div>
-        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={loading}
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg transition-all disabled:opacity-50"
+        >
+          {loading ? (
+            <RefreshCw className="animate-spin w-4 h-4" />
+          ) : (
+            <Server className="w-4 h-4" />
+          )}
+          {loading ? "Syncing..." : "Refresh Data"}
+        </button>
       </header>
 
-      {/* Bento Grid Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {/* Card 1: Latest Price */}
-        <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 hover:border-blue-500/50 transition-all shadow-lg hover:shadow-blue-500/10">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 bg-blue-500/10 rounded-lg">
-              <Activity className="text-blue-400" size={24} />
-            </div>
-            <h3 className="text-slate-400 font-medium">Current Price</h3>
+      {/* KPI CARDS */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
+          <div className="flex items-center gap-3 mb-2">
+            <Activity className="text-blue-400 w-5 h-5" />
+            <span className="text-slate-400 text-sm">Nifty Spot Price</span>
           </div>
-          <p className="text-4xl font-bold tracking-tight">
-            ₹
-            {latest.Close?.toLocaleString("en-IN", {
-              maximumFractionDigits: 2,
-            })}
-          </p>
+          <div className="text-2xl font-bold">{lastPrice}</div>
         </div>
 
-        {/* Card 2: RSI Momentum */}
-        <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 hover:border-purple-500/50 transition-all shadow-lg hover:shadow-purple-500/10">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 bg-purple-500/10 rounded-lg">
-              <TrendingUp className="text-purple-400" size={24} />
-            </div>
-            <h3 className="text-slate-400 font-medium">RSI Momentum</h3>
+        <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
+          <div className="flex items-center gap-3 mb-2">
+            <TrendingUp className="text-green-400 w-5 h-5" />
+            <span className="text-slate-400 text-sm">RSI (14)</span>
           </div>
-          <div className="flex items-end gap-3">
-            <p className="text-4xl font-bold tracking-tight">
-              {latest.rsi?.toFixed(1)}
-            </p>
-            <span
-              className={`px-2 py-1 rounded text-xs font-bold mb-2 ${
-                latest.rsi > 70
-                  ? "bg-red-500/20 text-red-400"
-                  : latest.rsi < 30
-                  ? "bg-green-500/20 text-green-400"
-                  : "bg-slate-700 text-slate-300"
-              }`}
-            >
-              {latest.rsi > 70
-                ? "OVERBOUGHT"
-                : latest.rsi < 30
-                ? "OVERSOLD"
-                : "NEUTRAL"}
-            </span>
+          <div
+            className={`text-2xl font-bold ${Number(rsi) > 70 ? "text-red-400" : Number(rsi) < 30 ? "text-green-400" : "text-slate-200"}`}
+          >
+            {rsi}
           </div>
         </div>
 
-        {/* Card 3: Market Regime */}
-        <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 hover:border-emerald-500/50 transition-all shadow-lg hover:shadow-emerald-500/10">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 bg-emerald-500/10 rounded-lg">
-              <AlertTriangle className="text-emerald-400" size={24} />
-            </div>
-            <h3 className="text-slate-400 font-medium">AI Regime</h3>
+        <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
+          <div className="flex items-center gap-3 mb-2">
+            <AlertTriangle className="text-yellow-400 w-5 h-5" />
+            <span className="text-slate-400 text-sm">Market Regime (AI)</span>
           </div>
-          <p className="text-4xl font-bold tracking-tight">
-            Mode {latest.regime}
-          </p>
-          <p className="text-slate-500 text-sm mt-1">
-            {latest.regime === 0
-              ? "Low Volatility (Trending)"
-              : "High Volatility (Choppy)"}
-          </p>
+          <div className="text-xl font-bold text-yellow-300">{regime}</div>
+        </div>
+
+        <div
+          className={`p-4 rounded-xl border ${signal === "BUY" ? "bg-green-900/30 border-green-800" : "bg-slate-900 border-slate-800"}`}
+        >
+          <div className="flex items-center gap-3 mb-2">
+            <Activity className="text-purple-400 w-5 h-5" />
+            <span className="text-slate-400 text-sm">Live Signal</span>
+          </div>
+          <div
+            className={`text-2xl font-bold ${signal === "BUY" ? "text-green-400" : "text-slate-500"}`}
+          >
+            {signal}
+          </div>
         </div>
       </div>
 
-      {/* Main Chart */}
-      <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 shadow-xl h-[500px]">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-semibold text-slate-200">
-            Price Trend & EMA Crossover Strategy
-          </h3>
-          <div className="flex gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-blue-500"></span>Price
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-emerald-500"></span>Fast
-              EMA (9)
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-red-500"></span>Slow EMA
-              (21)
-            </div>
-          </div>
-        </div>
+      {/* MAIN CHART SECTION */}
+      <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-xl">
+        <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+          <TrendingUp className="w-5 h-5 text-blue-400" />
+          Price Trend & EMA Crossover Strategy
+        </h2>
 
-        <ResponsiveContainer width="100%" height="85%">
-          <LineChart data={data}>
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="#1e293b"
-              vertical={false}
-            />
-            <XAxis dataKey="Datetime" hide />
-            <YAxis
-              domain={["auto", "auto"]}
-              orientation="right"
-              tick={{ fill: "#64748b" }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "#0f172a",
-                borderColor: "#334155",
-                borderRadius: "12px",
-                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.5)",
-              }}
-              itemStyle={{ color: "#e2e8f0" }}
-              labelStyle={{ color: "#94a3b8", marginBottom: "0.5rem" }}
-            />
-            <Line
-              type="monotone"
-              dataKey="Close"
-              stroke="#3b82f6"
-              strokeWidth={3}
-              dot={false}
-              activeDot={{ r: 8 }}
-            />
-            <Line
-              type="monotone"
-              dataKey="ema_9"
-              stroke="#10b981"
-              strokeWidth={2}
-              dot={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="ema_21"
-              stroke="#ef4444"
-              strokeWidth={2}
-              dot={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+        {/* --- SAFETY GUARD: PREVENTS CRASH --- */}
+        <div className="h-[400px] w-full flex items-center justify-center">
+          {data && Array.isArray(data) && data.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#334155"
+                  opacity={0.5}
+                />
+                <XAxis
+                  dataKey="timestamp"
+                  stroke="#94a3b8"
+                  fontSize={12}
+                  tickFormatter={(str) => {
+                    const d = new Date(str);
+                    return d.toLocaleDateString() ===
+                      new Date().toLocaleDateString()
+                      ? d.toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : d.toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                        });
+                  }}
+                  minTickGap={30}
+                />
+                <YAxis
+                  stroke="#94a3b8"
+                  domain={["auto", "auto"]}
+                  fontSize={12}
+                  tickFormatter={(val) => `₹${val}`}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#0f172a",
+                    borderColor: "#334155",
+                    color: "#f1f5f9",
+                  }}
+                  itemStyle={{ color: "#e2e8f0" }}
+                  labelStyle={{ color: "#94a3b8", marginBottom: "0.5rem" }}
+                  formatter={(value: any) => [
+                    typeof value === "number" ? value.toFixed(2) : value,
+                  ]}
+                  labelFormatter={(label) => new Date(label).toLocaleString()}
+                />
+                <Legend verticalAlign="top" height={36} />
+                <Line
+                  type="monotone"
+                  dataKey="close"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
+                  dot={false}
+                  name="Price"
+                  activeDot={{ r: 6 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="ema_9"
+                  stroke="#10b981"
+                  strokeWidth={1.5}
+                  dot={false}
+                  name="Fast EMA (9)"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="ema_21"
+                  stroke="#ef4444"
+                  strokeWidth={1.5}
+                  dot={false}
+                  name="Slow EMA (21)"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="text-center py-10">
+              <div className="inline-block p-4 rounded-full bg-slate-800 mb-4 animate-pulse">
+                <Server className="w-8 h-8 text-blue-400" />
+              </div>
+              <h3 className="text-xl font-medium text-slate-200">
+                Connecting to Cloud Server...
+              </h3>
+              <p className="text-slate-400 mt-2 max-w-md mx-auto">
+                The Render backend is waking up (Free Tier). This usually takes
+                30-50 seconds.
+                <br />
+                <span className="text-yellow-400 text-sm mt-2 block">
+                  Don't worry, the chart will appear automatically!
+                </span>
+              </p>
+            </div>
+          )}
+        </div>
       </div>
-    </main>
+    </div>
   );
 }

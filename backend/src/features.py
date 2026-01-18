@@ -1,47 +1,37 @@
 import pandas as pd
-import numpy as np
+from ta.trend import EMAIndicator
+from ta.momentum import RSIIndicator
+from ta.volatility import BollingerBands
 
 def calculate_technical_indicators(df):
     """
-    Adds technical indicators to the dataframe.
+    Adds technical indicators (RSI, EMA, Bollinger Bands) to the dataframe.
     """
-    print("Calculating Technical Indicators...")
+    # Ensure data is sorted
+    df = df.sort_values(by='timestamp').reset_index(drop=True)
     
-    # Ensure data is sorted by time
-    df = df.sort_values('Datetime').reset_index(drop=True)
-    
-    # 1. Returns (Percentage change from previous candle)
-    df['returns'] = df['Close'].pct_change()
-    
-    # 2. EMA (Exponential Moving Average) - Trend
-    # Short term trend (9 candles) vs Long term trend (21 candles)
-    df['ema_9'] = df['Close'].ewm(span=9, adjust=False).mean()
-    df['ema_21'] = df['Close'].ewm(span=21, adjust=False).mean()
-    
-    # 3. Volatility (Standard Deviation of returns)
-    df['volatility'] = df['returns'].rolling(window=20).std()
-    
-    # 4. RSI (Relative Strength Index) - Momentum
-    # Complex math simplified: Are we winning more than losing?
-    delta = df['Close'].diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-    
-    rs = gain / loss
-    df['rsi'] = 100 - (100 / (1 + rs))
-    
-    # Drop rows with NaN (the first few rows won't have calculated values)
-    df.dropna(inplace=True)
-    
-    print(f"✅ Indicators Added. Columns: {list(df.columns)}")
-    return df
+    # 1. RSI (14)
+    rsi_indicator = RSIIndicator(close=df['close'], window=14)
+    df['rsi'] = rsi_indicator.rsi()
 
-if __name__ == "__main__":
-    # Test the function
-    try:
-        data = pd.read_csv("data/nifty_final_clean.csv")
-        data_with_features = calculate_technical_indicators(data)
-        data_with_features.to_csv("data/nifty_features.csv", index=False)
-        print("Test Run Successful: Saved to data/nifty_features.csv")
-    except FileNotFoundError:
-        print("❌ Error: Run src/data_utils.py first!")
+    # 2. EMA (9 and 21)
+    ema_fast = EMAIndicator(close=df['close'], window=9)
+    ema_slow = EMAIndicator(close=df['close'], window=21)
+    df['ema_9'] = ema_fast.ema_indicator()
+    df['ema_21'] = ema_slow.ema_indicator()
+
+    # 3. Bollinger Bands (20, 2)
+    bb_indicator = BollingerBands(close=df['close'], window=20, window_dev=2)
+    df['bb_upper'] = bb_indicator.bollinger_hband()
+    df['bb_lower'] = bb_indicator.bollinger_lband()
+    
+    # 4. Simple Signal (1 = Buy, 0 = Wait)
+    # Buy if Fast EMA > Slow EMA and RSI is not overbought (>70)
+    df['signal'] = 0
+    condition = (df['ema_9'] > df['ema_21']) & (df['rsi'] < 70)
+    df.loc[condition, 'signal'] = 1
+
+    # Fill NaN values (caused by the first 20 rows of calculation)
+    df = df.fillna(0)
+    
+    return df

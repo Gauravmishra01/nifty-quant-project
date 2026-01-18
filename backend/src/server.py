@@ -4,16 +4,15 @@ import pandas as pd
 import os
 import sys
 
-# --- IMPORT YOUR ROBOT SKILLS ---
-# We append the current directory to path to make sure imports work
+# --- 1. SETUP PATHS ---
+# Ensure we can import from the current directory
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-try:
-    from data_utils import fetch_nifty_spot, fetch_india_vix, load_and_merge_data
-    from features import calculate_technical_indicators
-    from regime import detect_market_regimes
-except ImportError as e:
-    print(f"⚠️ Warning: Could not import modules. Error: {e}")
+# --- 2. STRICT IMPORTS ---
+# We import directly. If these fail, the server will log the specific error.
+from data_utils import fetch_nifty_spot
+from features import calculate_technical_indicators
+# from regime import detect_market_regimes # (Uncomment if you have this file working)
 
 app = Flask(__name__)
 CORS(app)
@@ -25,39 +24,33 @@ DATA_PATH = os.path.join(DATA_DIR, 'nifty_ready_to_trade.csv')
 
 # --- HELPER: The "Self-Healing" Function ---
 def run_pipeline():
-    """Downloads data, calculates features, and saves the CSV."""
     print("🔄 Pipeline Started: Downloading fresh data...")
     
-    # 1. Download (Fetches Max 60 Days)
-    fetch_nifty_spot() # Uses the new function that gets 60d
-    # Note: If you have a separate VIX fetcher, ensure it also gets 60d or matches the index
-    # For this submission, relying on the generated data from data_utils is safest.
+    # 1. Download Data (Max 60 Days)
+    df = fetch_nifty_spot()
     
-    # 2. Merge
-    # We assume these files are saved to 'data/' by your fetch functions
-    spot_path = os.path.join(DATA_DIR, "nifty_spot_5min.csv")
-    
-    # If you have VIX data, merge it. If not, we might skip merging or use a placeholder.
-    # For now, we will proceed assuming the data_utils handles the creation of the files.
-    
-    # 3. Feature Engineering
-    # We load the spot data we just downloaded
-    if os.path.exists(spot_path):
-        df = pd.read_csv(spot_path)
-        
-        # Calculate Technicals (RSI, EMA, etc.)
-        df_features = calculate_technical_indicators(df)
-        
-        # Detect Regimes (AI)
-        df_ready = detect_market_regimes(df_features)
-        
-        # 4. Save Final
-        df_ready.to_csv(DATA_PATH, index=False)
-        print("✅ Pipeline Complete: Data saved to disk.")
-        return df_ready
-    else:
-        print("❌ Error: Spot data file not found after download.")
+    if df is None or df.empty:
+        print("❌ Error: Failed to fetch spot data.")
         return None
+
+    # 2. Calculate Features
+    print("📊 Calculating Indicators...")
+    try:
+        df_features = calculate_technical_indicators(df)
+    except Exception as e:
+        print(f"❌ Error in Feature Engineering: {e}")
+        return None
+
+    # 3. (Optional) Detect Regimes
+    # If you have the regime file, use it here. 
+    # For now, we will add a default regime to prevent errors.
+    if 'regime' not in df_features.columns:
+        df_features['regime'] = 0 
+    
+    # 4. Save Final
+    df_features.to_csv(DATA_PATH, index=False)
+    print("✅ Pipeline Complete: Data saved to disk.")
+    return df_features
 
 @app.route('/api/data', methods=['GET'])
 def get_data():
@@ -71,11 +64,8 @@ def get_data():
         if os.path.exists(DATA_PATH):
             df = pd.read_csv(DATA_PATH)
             
-            # --- THE FIX: Send EVERYTHING (No .tail limit) ---
-            # We fill NaNs with 0 to ensure JSON compatibility
+            # Send EVERYTHING (No .tail limit)
             df_clean = df.copy().fillna(0)
-            
-            # Return the full dataset (records format is best for Recharts)
             return jsonify(df_clean.to_dict(orient='records'))
         else:
              return jsonify({"error": "Data could not be generated."}), 500
@@ -92,9 +82,8 @@ def refresh_data():
         if df_ready is not None:
             return jsonify({"message": "Data successfully updated!", "rows": len(df_ready)})
         else:
-            return jsonify({"error": "Pipeline failed to generate data"}), 500
+            return jsonify({"error": "Pipeline failed"}), 500
     except Exception as e:
-        print(f"❌ Refresh Failed: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':

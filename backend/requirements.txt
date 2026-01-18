@@ -1,17 +1,27 @@
+# Data & Analysis
 pandas
 numpy
+yfinance
+ta
+openpyxl
+
+# Visualization
 matplotlib
 seaborn
+
+# Machine Learning & Modeling
 scikit-learn
 xgboost
 tensorflow
 hmmlearn
+
+# Options & Volatility
 py_vollib
 mibian
-yfinance
-openpyxl
 
+# Backend / API
 flask
 flask-cors
 
+# Deployment
 gunicorn

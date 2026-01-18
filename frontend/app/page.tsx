@@ -26,12 +26,12 @@ export default function Home() {
 
   // --- CONFIGURATION ---
   // ✅ LIVE SERVER (Use this for your Final Submission)
-  const API_URL = "http://127.0.0.1:5000/api/data";
-  const REFRESH_URL = "http://127.0.0.1:5000/api/refresh";
+  const API_URL = "https://nifty-quant-project.onrender.com/api/data";
+  const REFRESH_URL = "https://nifty-quant-project.onrender.com/api/refresh";
 
   // 🛠️ LOCALHOST (Uncomment these only if testing locally)
-  // const API_URL = "http://127.0.0.1:5000/api/data";
-  // const REFRESH_URL = "http://127.0.0.1:5000/api/refresh";
+  // const API_URL = "https://nifty-quant-project.onrender.com/api/data";
+  // const REFRESH_URL = "https://nifty-quant-project.onrender.com/api/refresh";
 
   const fetchData = async () => {
     setLoading(true);

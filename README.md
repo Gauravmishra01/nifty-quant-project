@@ -33,44 +33,39 @@ The core innovation is a **Machine Learning Filter (Random Forest)** that screen
 This repository follows a modular data science structure alongside the full-stack application code.
 
 ```text
-├── data/                  # Raw and Processed Data Files
-│   ├── nifty_spot_5min.csv
-│   ├── nifty_futures_5min.csv
-│   └── nifty_options_5min.csv
+├── backend/                   # Python Flask API & Quantitative Logic
+│   ├── data/                  # Raw and Processed Data Storage
+│   ├── models/                # Serialized ML Models (.pkl files)
+│   ├── notebooks/             # Jupyter Notebooks for Research
+│   ├── plots/                 # Generated Analysis Charts
+│   ├── results/               # Backtest Logs and CSV Outputs
+│   ├── src/                   # Source Code
+│   │   ├── analysis.py        # Post-trade analysis logic
+│   │   ├── backtest.py        # Backtesting engine
+│   │   ├── data_utils.py      # Data fetching (Yahoo Finance) & cleaning
+│   │   ├── features.py        # Technical Indicators (RSI, EMA, etc.)
+│   │   ├── greeks.py          # Options Greeks calculations
+│   │   ├── ml_models.py       # AI Model training & inference
+│   │   ├── regime.py          # HMM Regime Detection logic
+│   │   ├── server.py          # Flask Entry Point (API)
+│   │   └── strategy.py        # Trading Signal Generators
+│   ├── .gitignore             # Backend-specific ignore rules
+│   └── requirements.txt       # Python Dependencies
 │
-├── notebooks/             # Jupyter Notebooks for Research & Analysis
-│   ├── 01_data_acquisition.ipynb
-│   ├── 02_data_cleaning.ipynb
-│   ├── 03_feature_engineering.ipynb
-│   ├── 04_regime_detection.ipynb
-│   ├── 05_baseline_strategy.ipynb
-│   ├── 06_ml_models.ipynb
-│   └── 07_outlier_analysis.ipynb
+├── frontend/                  # Next.js Web Dashboard
+│   ├── app/                   # App Router & UI Components
+│   │   ├── globals.css        # Global Styles (Tailwind)
+│   │   ├── layout.tsx         # Root Layout Wrapper
+│   │   └── page.tsx           # Main Dashboard Page
+│   ├── public/                # Static Assets (Images, Icons)
+│   ├── .gitignore             # Frontend-specific ignore rules
+│   ├── next.config.ts         # Next.js Configuration
+│   ├── package.json           # Node Dependencies
+│   ├── postcss.config.mjs     # CSS Processing Config
+│   └── tsconfig.json          # TypeScript Configuration
 │
-├── src/                   # Core Python Modules (Backend Logic)
-│   ├── data_utils.py      # Data fetching and synthetic generation
-│   ├── features.py        # Technical indicators (RSI, EMA, Bollinger)
-│   ├── greeks.py          # Option Greeks calculation
-│   ├── regime.py          # HMM Model logic
-│   ├── strategy.py        # Signal generation logic
-│   ├── backtest.py        # Performance evaluation engine
-│   └── ml_models.py       # Random Forest training and inference
-│
-├── models/                # Serialized Machine Learning Models
-│   ├── hmm_model.pkl
-│   └── rf_classifier.pkl
-│
-├── results/               # Backtest Outputs and Logs
-│   ├── backtest_summary.csv
-│   └── trade_log.json
-│
-├── plots/                 # Generated Visualizations
-│   ├── equity_curve.png
-│   ├── regime_overlay.png
-│   └── confusion_matrix.png
-│
-├── requirements.txt       # Python Dependencies
-└── README.md              # Project Documentation
+├── .gitignore                 # Root ignore rules
+└── README.md                  # Main Project Documentation
 ```
 
 ---
